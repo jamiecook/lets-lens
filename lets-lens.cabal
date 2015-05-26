@@ -29,6 +29,7 @@ library
                       , doctest >= 0.9.7
                       , containers >= 0.4.0.0
                       , array >= 0.4
+                      , bifunctors
 
   ghc-options:        -Wall
                       -fno-warn-unused-binds

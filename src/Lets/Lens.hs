@@ -110,8 +110,7 @@ fmapT ::
   (a -> b)
   -> t a
   -> t b
-fmapT =
-  error "todo: fmapT"
+fmapT f = error "jamie"  -- traverse Identity
 
 -- | Let's refactor out the call to @traverse@ as an argument to @fmapT@.
 over :: 

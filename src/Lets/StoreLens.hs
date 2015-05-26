@@ -77,27 +77,26 @@ mapS ::
   (a -> b)
   -> Store s a
   -> Store s b
-mapS =
-  error "todo: mapS"
+mapS f (Store s2a s) = Store (f . s2a) s
 
 duplicateS ::
   Store s a
   -> Store s (Store s a)
-duplicateS =
-  error "todo: duplicateS"
+duplicateS ssa@(Store s2a s) =
+  Store s2ssa s
+  where s2ssa ss = Store s2a ss
 
 extendS ::
   (Store s a -> b)
   -> Store s a
   -> Store s b
-extendS =
-  error "todo: extendS"
+extendS ssa2b ssa@(Store s2a s) = Store s2b s
+  where s2b s = ssa2b (Store s2a s)
 
 extractS ::
   Store s a
   -> a
-extractS =
-  error "todo: extractS"
+extractS (Store s2a s) = s2a s
 
 ----
 
@@ -136,7 +135,7 @@ get (Lens r) =
 -- prop> let types = (x :: Int, y :: String) in set sndL (x, y) z == (x, z)
 set ::
   Lens a b
-  -> a 
+  -> a
   -> b
   -> a
 set (Lens r) =
@@ -150,7 +149,7 @@ getsetLaw ::
   -> Bool
 getsetLaw l =
   \a -> set l a (get l a) == a
-  
+
 -- | The set/get law of lenses. This function should always return @True@.
 setgetLaw ::
   Eq b =>
@@ -243,7 +242,7 @@ fmodify ::
   -> f a
 fmodify =
   error "todo: fmodify"
-  
+
 -- |
 --
 -- >>> fstL |= Just 3 $ (7, "abc")
@@ -379,7 +378,7 @@ identity ::
   Lens a a
 identity =
   error "todo: identity"
-    
+
 -- |
 --
 -- >>> get (product fstL sndL) (("abc", 3), (4, "def"))
@@ -550,7 +549,7 @@ setCityAndLocality ::
   (Person, Address) -> (String, Locality) -> (Person, Address)
 setCityAndLocality =
   error "todo: setCityAndLocality"
-  
+
 -- |
 --
 -- >>> getSuburbOrCity (Left maryAddress)
