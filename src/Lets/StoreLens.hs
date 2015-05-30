@@ -70,21 +70,18 @@ setS (Store s _) =
 getS ::
   Store s a
   -> s
-getS (Store _ g) =
-  g
+getS (Store _ g) = g
 
 mapS ::
   (a -> b)
   -> Store s a
   -> Store s b
-mapS f (Store s2a s) = Store (f . s2a) s
+mapS f (Store hole piece) = Store (f . hole) piece
 
 duplicateS ::
   Store s a
   -> Store s (Store s a)
-duplicateS ssa@(Store s2a s) =
-  Store s2ssa s
-  where s2ssa ss = Store s2a ss
+duplicateS (Store hole piece) = Store (Store hole) piece
 
 extendS ::
   (Store s a -> b)
@@ -96,7 +93,7 @@ extendS ssa2b ssa@(Store s2a s) = Store s2b s
 extractS ::
   Store s a
   -> a
-extractS (Store s2a s) = s2a s
+extractS (Store hole piece) = hole piece
 
 ----
 
@@ -119,8 +116,7 @@ get ::
   Lens a b
   -> a
   -> b
-get (Lens r) =
-  getS . r
+get (Lens r) = getS . r
 
 -- |
 --
@@ -138,8 +134,7 @@ set ::
   -> a
   -> b
   -> a
-set (Lens r) =
-  setS . r
+set (Lens r) = setS . r
 
 -- | The get/set law of lenses. This function should always return @True@.
 getsetLaw ::
@@ -147,8 +142,7 @@ getsetLaw ::
   Lens a b
   -> a
   -> Bool
-getsetLaw l =
-  \a -> set l a (get l a) == a
+getsetLaw l a = set l a (get l a) == a
 
 -- | The set/get law of lenses. This function should always return @True@.
 setgetLaw ::
@@ -184,13 +178,12 @@ setsetLaw l a b1 b2 =
 -- prop> let types = (x :: Int, y :: String) in modify fstL id (x, y) == (x, y)
 --
 -- prop> let types = (x :: Int, y :: String) in modify sndL id (x, y) == (x, y)
-modify ::
-  Lens a b
-  -> (b -> b)
-  -> a
-  -> a
-modify =
-  error "todo: modify"
+modify :: Lens a b -> (b -> b) -> a -> a
+modify l f a = set l a (f $ get l a)
+
+modify' :: Lens a b -> (b -> b) -> a -> a
+modify' (Lens r) f a = hole $ f piece
+  where (Store hole piece) = r a
 
 -- | An alias for @modify@.
 (%~) ::
@@ -214,13 +207,11 @@ infixr 4 %~
 -- prop> let types = (x :: Int, y :: String) in set fstL (x, y) z == (fstL .~ z $ (x, y))
 --
 -- prop> let types = (x :: Int, y :: String) in set sndL (x, y) z == (sndL .~ z $ (x, y))
-(.~) ::
-  Lens a b
-  -> b
-  -> a
-  -> a
-(.~) =
-  error "todo: (.~)"
+(.~) :: Lens a b -> b -> a -> a
+(.~) l b a = set l a b
+
+(.~~) :: Lens a b -> b -> a -> a
+(.~~) l = modify l . const
 
 infixl 5 .~
 
@@ -240,8 +231,8 @@ fmodify ::
   -> (b -> f b)
   -> a
   -> f a
-fmodify =
-  error "todo: fmodify"
+fmodify (Lens r) f a = hole <$> f piece
+  where (Store hole piece) = r a
 
 -- |
 --
@@ -256,8 +247,8 @@ fmodify =
   -> f b
   -> a
   -> f a
-(|=) =
-  error "todo: (|=)"
+(|=) (Lens r) fb a = hole <$> fb
+  where (Store hole piece) = r a
 
 infixl 5 |=
 
@@ -273,8 +264,7 @@ infixl 5 |=
 -- prop> let types = (x :: Int, y :: String) in setsetLaw fstL (x, y) z
 fstL ::
   Lens (x, y) x
-fstL =
-  error "todo: fstL"
+fstL = Lens (\(x,y) -> Store (\x' -> (x',y)) x)
 
 -- |
 --
@@ -288,8 +278,7 @@ fstL =
 -- prop> let types = (x :: Int, y :: String) in setsetLaw sndL (x, y) z
 sndL ::
   Lens (x, y) y
-sndL =
-  error "todo: sndL"
+sndL = Lens (\(x,y) -> Store (\y' -> (x,y')) y)
 
 -- |
 --
@@ -310,12 +299,15 @@ sndL =
 --
 -- >>> set (mapL 33) (Map.fromList (map (\c -> (ord c - 96, c)) ['a'..'d'])) Nothing
 -- fromList [(1,'a'),(2,'b'),(3,'c'),(4,'d')]
-mapL ::
-  Ord k =>
-  k
-  -> Lens (Map k v) (Maybe v)
-mapL =
-  error "todo: mapL"
+mapL :: Ord k => k -> Lens (Map k v) (Maybe v)
+mapL k = Lens (\m -> let piece = Map.lookup k m
+                         hole Nothing = Map.delete k m
+                         hole (Just v) = Map.insert k v m
+--                         hole = (maybe . Map.delete k <*> (flip (Map.insert k)))
+                     in Store hole piece)
+
+mapL' :: Ord k => k -> Lens (Map k v) (Maybe v)
+mapL' k = Lens (Store <$> (maybe . Map.delete k <*> (flip (Map.insert k))) <*> Map.lookup k)
 
 -- |
 --
@@ -354,8 +346,11 @@ compose ::
   Lens b c
   -> Lens a b
   -> Lens a c
-compose =
-  error "todo: compose"
+compose (Lens bc) (Lens ab) =
+  Lens (\a -> let ac_hole = ab_hole . bc_hole
+                  Store ab_hole b_piece = ab a
+                  Store bc_hole c_piece = bc b_piece
+              in Store ac_hole c_piece)
 
 -- | An alias for @compose@.
 (|.) ::
@@ -374,10 +369,8 @@ infixr 9 |.
 --
 -- >>> set identity 3 4
 -- 4
-identity ::
-  Lens a a
-identity =
-  error "todo: identity"
+identity :: Lens a a
+identity = Lens (Store id)
 
 -- |
 --
