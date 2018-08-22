@@ -143,6 +143,9 @@ instance Applicative (Tagged a) where
   Tagged f <*> Tagged a =
     Tagged (f a)
 
+-- (Identity a -> a) . (a -> Identity a)
+-- getIdentity . Identity
+-- id
 data Identity a =
   Identity {
     getIdentity ::

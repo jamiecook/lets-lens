@@ -1,4 +1,5 @@
 {-# LANGUAGE RankNTypes #-}
+{-# OPTIONS_GHC -fno-warn-unused-imports #-}
 
 module Lets.Lens (
   fmapT
@@ -97,29 +98,30 @@ import Prelude hiding (product)
 --
 -- class (Foldable t, Functor t) => Traversable t where
 --   traverse ::
---     Applicative f => 
+--     Applicative f =>
 --     (a -> f b)
 --     -> t a
 --     -> f (t b)
 
 -- | Observe that @fmap@ can be recovered from @traverse@ using @Identity@.
 --
--- /Reminder:/ fmap :: Functor t => (a -> b) -> t a -> t b
+-- /Reminder:/ fmap     :: Functor t     => (a -> b)   -> t a -> t b
+--             traverse :: Applicative f => (a -> f b) -> t a -> f (t b)
 fmapT ::
   Traversable t =>
   (a -> b)
   -> t a
   -> t b
-fmapT f = error "jamie"  -- traverse Identity
+fmapT f = getIdentity . traverse (Identity . f)
 
 -- | Let's refactor out the call to @traverse@ as an argument to @fmapT@.
-over :: 
+--             traverse :: Applicative f => (a -> f b) -> t a -> f (t b)
+over ::
   ((a -> Identity b) -> s -> Identity t)
   -> (a -> b)
   -> s
   -> t
-over =
-  error "todo: over"
+over traverseyThing f = getIdentity . traverseyThing (Identity . f)
 
 -- | Here is @fmapT@ again, passing @traverse@ to @over@.
 fmapTAgain ::
@@ -127,8 +129,7 @@ fmapTAgain ::
   (a -> b)
   -> t a
   -> t b
-fmapTAgain =
-  error "todo: fmapTAgain"
+fmapTAgain = over traverse
 
 -- | Let's create a type-alias for this type of function.
 type Set s t a b =
@@ -140,23 +141,22 @@ type Set s t a b =
 -- unwrapping.
 sets ::
   ((a -> b) -> s -> t)
-  -> Set s t a b  
-sets =
-  error "todo: sets"
+  -> Set s t a b
+sets thing g = Identity . thing (getIdentity . g)
 
 mapped ::
   Functor f =>
   Set (f a) (f b) a b
-mapped =
-  error "todo: mapped"
+  -- (a -> Identity b) -> f a -> Identity f b
+mapped = sets fmap
 
 set ::
   Set s t a b
+  -- ((a -> Identity b) -> s -> Identity t)
   -> s
   -> b
   -> t
-set =
-  error "todo: set"
+set foo s b = getIdentity (foo (const (Identity b)) s)
 
 ----
 
@@ -288,7 +288,7 @@ _Left =
   error "todo: _Left"
 
 _Right ::
-  Prism (Either x a) (Either x b) a b 
+  Prism (Either x a) (Either x b) a b
 _Right =
   error "todo: _Right"
 
@@ -394,7 +394,7 @@ fmodify ::
   Lens s t a b
   -> (a -> f b)
   -> s
-  -> f t 
+  -> f t
 fmodify =
   error "todo: fmodify"
 
@@ -594,7 +594,7 @@ stateL p (Locality c t y) =
 countryL ::
   Lens' Locality String
 countryL p (Locality c t y) =
-  fmap (\y' -> Locality c t y') (p y)
+  fmap (Locality c t) (p y)
 
 streetL ::
   Lens' Address String
@@ -609,7 +609,7 @@ suburbL p (Address t s l) =
 localityL ::
   Lens' Address Locality
 localityL p (Address t s l) =
-  fmap (\l' -> Address t s l') (p l)
+  fmap (Address t s) (p l)
 
 ageL ::
   Lens' Person Int
@@ -624,18 +624,18 @@ nameL p (Person a n d) =
 addressL ::
   Lens' Person Address
 addressL p (Person a n d) =
-  fmap (\d' -> Person a n d') (p d)
+  fmap (Person a n) (p d)
 
 intAndIntL ::
   Lens' (IntAnd a) Int
 intAndIntL p (IntAnd n a) =
-  fmap (\n' -> IntAnd n' a) (p n)
+  fmap (`IntAnd` a) (p n)
 
 -- lens for polymorphic update
 intAndL ::
   Lens (IntAnd a) (IntAnd b) a b
 intAndL p (IntAnd n a) =
-  fmap (\a' -> IntAnd n a') (p a)
+  fmap (IntAnd n) (p a)
 
 -- |
 --
@@ -688,7 +688,7 @@ setCityAndLocality ::
   (Person, Address) -> (String, Locality) -> (Person, Address)
 setCityAndLocality =
   error "todo: setCityAndLocality"
-  
+
 -- |
 --
 -- >>> getSuburbOrCity (Left maryAddress)
